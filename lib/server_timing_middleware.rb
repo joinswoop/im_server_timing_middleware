@@ -6,7 +6,7 @@
 # [1] Server Timing spec: https://w3c.github.io/server-timing/
 
 module Rack
-  class IMServerTimingMiddleware
+  class ServerTimingMiddleware
     def initialize(app)
       @app = app
     end
@@ -24,7 +24,7 @@ module Rack
       # caches, but I'd say it's necessary so we don't leak memory
       ActiveSupport::Notifications.unsubscribe(subs)
 
-      grape_runtime = nil
+      rails_runtime = nil
 
       mapped_events = events.group_by { |el|
         el.name
@@ -35,8 +35,8 @@ module Rack
 
         # store a copy of this so we can figure out how much time our middleware
         # is taking
-        if (event_name == 'endpoint_run.grape')
-          grape_runtime = agg_time
+        if (event_name == 'process_action.action_controller')
+          rails_runtime = agg_time
         end
 
         # We need the string formatter as the scientific notation
@@ -50,18 +50,18 @@ module Rack
         runtime = headers['X-Runtime'].to_f * 1000
         mapped_events.push(['runtime.rack', '%.10f' % runtime])
 
-        # and if we also have grape_runtime then the difference between these two
-        # is the time it takes to run the rack middleware stack between grape and
+        # and if we also have rails_runtime then the difference between these two
+        # is the time it takes to run the rack middleware stack between rails and
         # us
-        if (grape_runtime)
-          mapped_events.push(['middleware.rack', '%.10f' % (runtime - grape_runtime)])
+        if (rails_runtime)
+          mapped_events.push(['middleware.rack', '%.10f' % (runtime - rails_runtime)])
         end
       end
 
       # Example output:
-      #   'cpu=0.009; "CPU", mysql=0.005; "MySQL", filesystem=0.006; "Filesystem"'
+      #   'cpu;dur=0.009, mysql;dur=0.005, filesystem;dur=0.006'
       headers['Server-Timing'] = mapped_events.map do |name, elapsed_time|
-        "#{name}=#{elapsed_time}; \"#{name}\""
+        "#{name};dur=#{elapsed_time}"
       end.join(', ')
 
       [status, headers, body]
@@ -69,4 +69,4 @@ module Rack
   end
 end
 
-require 'im_server_timing_middleware/railtie' if defined?(Rails)
+require 'server_timing_middleware/railtie' if defined?(Rails)

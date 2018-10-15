@@ -1,5 +1,5 @@
 $LOAD_PATH.unshift File.expand_path('../../lib', __FILE__)
-require 'im_server_timing_middleware'
+require 'server_timing_middleware'
 
 require 'minitest/autorun'
 
